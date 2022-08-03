@@ -6,46 +6,67 @@
  */
 #include "I2C.h"
 
-void I2C_init(u8 address)
+//static void (*I2C_Callback_Func)(void);
+
+
+/*Master  TWBR register Value to acheive the required SCL Frequency (Clock Freq) depend on Prescaler*/
+/* Calculate the TWBR_Value from the equation in DataSheet*/
+/*Set Value of prescalar according to the required value need in SCL and that also give TWBR_Value in range from 0 to 255*/
+
+void I2C_Master_init(u8 TWBR_Value,u8 Master_address)
 {
-	#if defined Master_Mode
-	#if defined Prescaler_0
-		CLEAR_BIT(TWSR,TWPS0);
-		CLEAR_BIT(TWSR,TWPS1);
-		TWBR_Value;
-		#elif defined Prescaler_1
-		SET_BIT(TWSR,TWPS0);
-		CLEAR_BIT(TWSR,TWPS1);
-		TWBR_Value;
-		#elif defined Prescaler_2
-		CLEAR_BIT(TWSR,TWPS0);
-		SET_BIT(TWSR,TWPS1);
-		TWBR_Value;
-		#elif defined Prescaler_3
-		SET_BIT(TWSR,TWPS0);
-		SET_BIT(TWSR,TWPS1);
-		TWBR_Value;
-	#if defined Recognize_GeneralCall
-		SET_BIT(TWAR,TWGCE);
-		#elif defined Not_Recognize_GeneralCall
-		CLEAR_BIT(TWAR,TWGCE);
-	#endif
 
+	#if defined Master_Prescaler_1
+		CLEAR_BIT(TWSR,TWPS0);
+		CLEAR_BIT(TWSR,TWPS1);
+		#elif defined Master_Prescaler_4
+		SET_BIT(TWSR,TWPS0);
+		CLEAR_BIT(TWSR,TWPS1);
+		#elif defined Master_Prescaler_16
+		CLEAR_BIT(TWSR,TWPS0);
+		SET_BIT(TWSR,TWPS1);
+		#elif defined Master_Prescaler_64
+		SET_BIT(TWSR,TWPS0);
+		SET_BIT(TWSR,TWPS1);
+	#endif
+	TWBR = TWBR_Value; //Define the value from data sheet
+	/* initialize the address of the master*/
 	#if defined Master_Not_Addressed
-		TWAR =  0;
+		TWAR =  (Master_address & 0X00);
 	#elif defined Master_Addressed
-		TWAR = address << 1;
+		TWAR = (Master_address & 0XFE) ;
 	#endif
-		#endif
 
-	#elif defined Slave_Mode
-		TWAR = address << 1;
-	#if defined Slave_Recognize_GeneralCall
+	#if defined I2C_Master_Recognize_GeneralCall
 		SET_BIT(TWAR,TWGCE);
-		#elif Slave_defined Not_Recognize_GeneralCall
+		#elif defined I2C_Master_Not_Recognize_GeneralCall
 		CLEAR_BIT(TWAR,TWGCE);
-#endif
-		#endif
+	#endif
+	#if defined Master_Enable_ACK_Bit
+		SET_BIT(TWCR,TWEA);	// Master used it when master is a receiver
+	#elif defined Master_Disable_ACK_Bit
+	CLEAR_BIT(TWCR,TWEA);
+	#endif
+	/*Enable the I2C*/
+	SET_BIT(TWCR,TWEN);
+}
+
+void I2C_Slave_init(u8 Slave_address)
+{
+	/* initialize the address of the master*/
+	TWAR = (Slave_address  & 0XFE) ;
+	#if defined I2C_Slave_Recognize_GeneralCall
+		SET_BIT(TWAR,TWGCE);
+		#elif defined I2C_Slave_Not_Recognize_GeneralCall
+		CLEAR_BIT(TWAR,TWGCE);
+	#endif
+
+	#if defined Slave_Enable_ACK_Bit
+		SET_BIT(TWCR,TWEA);	// Master used it when master is a receiver
+	#elif defined Slave_Disable_ACK_Bit
+	CLEAR_BIT(TWCR,TWEA);
+	#endif
+	/*Enable the I2C*/
 	SET_BIT(TWCR,TWEN);
 }
 
@@ -53,10 +74,10 @@ STD_Return I2C_Interrupt_Enable(I2C_Interrupt_Enable_t state)
 {
 	switch (state)
 	{
-		case I2C_Enable:
+		case I2C_Enable_Interrupt:
 			SET_BIT(TWCR,TWIE);
 			break;
-		case I2C_Disable:
+		case I2C_Disable_Interrupt:
 			CLEAR_BIT(TWCR,TWIE);
 			break;
 		default:
@@ -65,172 +86,161 @@ STD_Return I2C_Interrupt_Enable(I2C_Interrupt_Enable_t state)
 	return E_NOK;
 }
 
-STD_Return I2C_ACK_Mode(I2C_ACK_State_t state)
+I2C_Error_States_t I2C_Start_Condtion_Polling(void)
 {
-	switch (state)
-	{
-		case I2C_ACK:
-			SET_BIT(TWCR,TWEA);
-			break;
-		case I2C_NACK:
-			CLEAR_BIT(TWCR,TWEA);
-			break;
-		default:
-			return E_OK;
-	}
-	return E_NOK;
-}
-
-STD_Return I2C_Send_Condtion(I2C_Condition_State_t State)
-{
-	switch(State)
-	{
-		case I2C_Start_Condition:
-			/* Send Start condition*/
-			SET_BIT(TWCR,TWSTA);
-			/* Clear the interrupt flag to operate the start condition*/
-			SET_BIT(TWCR,TWINT);
-			/*wait until the interrupt flag raise again and previous operation is completed*/
-			while((GET_BIT(TWCR,TWINT))==0);
-			/* check operation status register*/
-			if ((TWSR & Mask_Selected_Bit) != START_ACK)
-			{
-				return E_OK;
-			}
-			break;
-		case I2C_RepeatedStart_Condition:
-			/* Send Repeated Start condition*/
-			SET_BIT(TWCR,TWSTA);
-			/* Clear the interrupt flag to operate the start condition*/
-			SET_BIT(TWCR,TWINT);
-			/*wait until the interrupt flag raise again and previous operation is completed*/
-			while((GET_BIT(TWCR,TWINT))==0);
-			/* check operation status register*/
-			if ((TWSR & Mask_Selected_Bit) != REP_START_ACK)
-			{
-				return E_OK;
-			}
-			break;
-		case I2C_Stop_Condition:
-			SET_BIT(TWCR,TWSTO);
-			/* Clear the interrupt flag to operate the stop condition*/
-			SET_BIT(TWCR,TWINT);
-			break;
-		default:
-			return E_OK;
-	}
-	return E_NOK;
-}
-
-STD_Return I2C_Slave_Address_Mode(I2C_SlaveAddress_State_t State,u8 address)
-{
-	switch (State)
-	{
-		case I2C_SlaveAddress_Read:
-			SET_BIT(TWDR,Read_Write);
-			/*Set the Slave Address in the MSB 7 bits in data register*/
-			TWDR = address << 1;
-			/* Clear the interrupt flag to operate the Slave Start Read*/
-			SET_BIT(TWCR,TWINT);
-			/*wait until the interrupt flag raise again and previous operation is completed*/
-			while((GET_BIT(TWCR,TWINT))==0);
-#if defined Status_With_ACK
-			/* check operation status register*/
-			if ((TWSR & Mask_Selected_Bit) != MasterSend_SLA_RDR_ACK)
-			{
-				return E_OK;
-			}
-#elif defined Status_With_NACK
-	/* check operation status register*/
-	if ((TWSR & Mask_Selected_Bit) != MasterSend_SLA_RDR_NACK)
-	{
-		return E_OK;
-	}
-#endif
-			break;
-		case I2C_SlaveAddress_Write:
-			CLEAR_BIT(TWDR,Read_Write);
-			/*Set the Slave Address in the MSB 7 bits in data register*/
-			TWDR = address << 1;
-			/* Clear the interrupt flag to operate the start Slave Start Write*/
-			SET_BIT(TWCR,TWINT);
-			/*wait until the interrupt flag raise again and previous operation is completed*/
-			while((GET_BIT(TWCR,TWINT))==0);
-#if defined Status_With_ACK
-			/* check operation status register*/
-			if ((TWSR & Mask_Selected_Bit) != MasterSend_SLA_WRR_ACK)
-			{
-				return E_OK;
-			}
-#elif defined Status_With_NACK
-	/* check operation status register*/
-	if ((TWSR & Mask_Selected_Bit) != MasterSend_SLA_WRR_NACK)
-	{
-		return E_OK;
-	}
-#endif
-			break;
-		default:
-			return E_OK;
-	}
-
-	return E_NOK;
-}
-
-STD_Return I2C_Master_WriteData_Mode(u8 Data)
-{
-	/*Write Data byte*/
-	TWDR = Data;
-	/* Clear the interrupt flag to operate the Master Sending Data*/
+	SET_BIT(TWCR,TWSTA);
 	SET_BIT(TWCR,TWINT);
-	/*wait until the interrupt flag rise again and previous operation is completed*/
-	while((GET_BIT(TWCR,TWINT))==0);
-	/* check operation status register*/
-
-#if defined Status_With_ACK
-	if ((TWSR & Mask_Selected_Bit) != MasterSend_DataByte_ACK)
+	while(GET_BIT(TWCR,TWINT) == 0);
+	if((TWSR & 0XF8) != START_ACK)
 	{
-		return E_OK;
-	}
-#elif defined Status_With_NACK
-	/* check operation status register*/
-	if ((TWSR & Mask_Selected_Bit) != MasterSend_DataByte_NACK)
-	{
-		return E_OK;
-	}
-#endif
-	return E_NOK;
-}
-STD_Return I2C_Master_ReceiveData_Mode(u8 *Data)
-{
-	/* Clear the interrupt flag to operate the Slave Sending data Operation*/
-	SET_BIT(TWCR,TWINT);
-	/*wait until the interrupt flag raise again and previous operation is completed*/
-	while((GET_BIT(TWCR,TWINT))==0);
-
-#if defined Status_With_ACK
-	/* check operation status register*/
-	if ((TWSR & Mask_Selected_Bit) != MasterReceive_DataByte_ACK)
-	{
-		return E_OK;
+		return 	I2C_StartCondition_Error;
 	}
 	else
+	{
+		CLEAR_BIT(TWCR,TWSTA);
+		return I2C_NO_Error;
+	}
+}
+
+I2C_Error_States_t I2C_RepeatedStart_Condtion_Polling(void)
+{
+	SET_BIT(TWCR,TWSTA);
+	SET_BIT(TWCR,TWINT);
+	while(GET_BIT(TWCR,TWINT) == 0);
+	if((TWSR & 0XF8) != REP_START_ACK)
+	{
+		return 	I2C_RepeatedStartCondition_Error;
+	}
+	else
+	{
+		CLEAR_BIT(TWCR,TWSTA);
+		return I2C_NO_Error;
+	}
+}
+
+void I2C_Stop_Condition(void)
+{
+	SET_BIT(TWCR,TWINT);
+	SET_BIT(TWCR,TWSTO);
+}
+
+I2C_Error_States_t I2C_SlaveAddressWrite_MasterTransmitterMode_Polling(u8 Slave_address)
+{
+	TWDR = ((Slave_address << 1)|Write_Mode);
+	SET_BIT(TWCR,TWINT);
+	while(GET_BIT(TWCR,TWINT) == 0);
+#if defined Status_With_ACK
+
+	if((TWSR & 0XF8) == MasterSend_SLA_WRR_ACK)
+	{
+		return 	I2C_SlaveAddress_ACK_Write_Error;
+	}
+#elif defined Status_With_NACK
+	{
+		if((TWSR & 0XF8) != MasterSend_SLA_WRR_NACK)
 		{
-			/*Read Data byte after flag cleared*/
-			 *Data = TWDR;
+			return 	I2C_SlaveAddress_NACK_Write_Error;
 		}
-#elif defined Status_With_NACK
-	/* check operation status register*/
-	if ((TWSR & Mask_Selected_Bit) != MasterReceive_DataByte_NACK)
-	{
-		return E_OK;
-	}
-	else
-	{
-		/*Read Data byte after flag cleared*/
-		 *Data = TWDR;
 	}
 #endif
-
-	return E_NOK;
+	else
+	{
+		return I2C_NO_Error;
+	}
 }
+
+I2C_Error_States_t I2C_SlaveAddressRead_MasterReceiverMode_Polling(u8 Slave_address)
+{
+	TWDR = ((Slave_address << 1)|Read_Mode);
+	SET_BIT(TWCR,TWINT);
+	while(GET_BIT(TWCR,TWINT) == 0);
+#if defined Status_With_ACK
+
+	if((TWSR & 0XF8) == MasterSend_SLA_RDR_ACK)
+	{
+		return 	I2C_SlaveAddress_ACK_Read_Error;
+	}
+#elif defined Status_With_NACK
+	{
+		if((TWSR & 0XF8) != MasterSend_SLA_RDR_NACK)
+		{
+			return 	I2C_SlaveAddress_NACK_Read_Error;
+		}
+	}
+#endif
+	else
+	{
+		return I2C_NO_Error;
+	}
+}
+
+I2C_Error_States_t I2C_MasterTransmitter_WriteData_Polling(u8 Sended_Data)
+{
+
+	TWDR = Sended_Data;
+	SET_BIT(TWCR,TWINT);
+	while(GET_BIT(TWCR,TWINT)==0);
+
+#if defined Status_With_ACK
+
+	if((TWSR & 0XF8) == MasterSend_DataByte_ACK)
+	{
+
+		return 	I2C_MasterByte_ACK_Write_Error;
+	}
+#elif defined Status_With_NACK
+	{
+		if((TWSR & 0XF8) != MasterSend_DataByte_NACK)
+		{
+			return 	I2C_MasterByte_NACK_Write_Error;
+		}
+	}
+#endif
+	else
+	{
+		return I2C_NO_Error;
+	}
+}
+
+I2C_Error_States_t I2C_MasterReceiver_ReceiveData_Polling(u8 *Received_Data)
+{
+	SET_BIT(TWCR,TWINT);
+
+	while(GET_BIT(TWCR,TWINT)==0);
+
+	#if defined Status_With_ACK
+
+	if((TWSR & 0XF8) == MasterReceive_DataByte_ACK)
+	{
+		return 	I2C_MasterByte_ACK_Write_Error;
+	}
+#elif defined Status_With_NACK
+	{
+		if((TWSR & 0XF8) != MasterReceive_DataByte_NACK)
+		{
+			return 	I2C_MasterByte_NACK_Write_Error;
+		}
+	}
+#endif
+	else
+	{
+
+		*Received_Data = TWDR;
+		return I2C_NO_Error;
+	}
+}
+
+void I2C_TransmiterMaster_Writebyte(u8 device_address,u8 Data_Location,u8 data)
+{
+	I2C_Start_Condtion_Polling();
+	I2C_SlaveAddressWrite_MasterTransmitterMode_Polling(device_address);
+	I2C_MasterTransmitter_WriteData_Polling(Data_Location);
+	I2C_MasterTransmitter_WriteData_Polling(data);
+}
+void I2C_TransmiterMaster_Rewritebyte(u8 device_address,u8 Data_Location,u8 data)
+{
+	I2C_RepeatedStart_Condtion_Polling();
+	I2C_SlaveAddressWrite_MasterTransmitterMode_Polling(device_address);
+	I2C_MasterTransmitter_WriteData_Polling(data);
+}
+

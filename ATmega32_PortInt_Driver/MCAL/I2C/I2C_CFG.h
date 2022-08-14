@@ -12,29 +12,30 @@
 #define Status_With_ACK
 //#define Status_With_NACK
 
+#define ACK_Enable
+//#define NACK_Enable
+
+#define ACK_Enable
+//#define NACK_Enable
+
 /*Master Prescale*/
 #define Master_Prescaler_1
 //#define Master_Prescaler_4
 //#define Master_Prescaler_16
 //#define Master_Prescaler_8
 
-#define Master_Enable_ACK_Bit
-//#define Master_Disable_ACK_Bit
-
-#define Slave_Enable_ACK_Bit
-//#define Slave_Disable_ACK_Bit
-
-
 //#define I2C_Master_Recognize_GeneralCall
 #define I2C_Master_Not_Recognize_GeneralCall
 
-#define I2C_Slave_Recognize_GeneralCall
-//#define I2C_Slave_Not_Recognize_GeneralCall
+//#define I2C_Slave_Recognize_GeneralCall
+#define I2C_Slave_Not_Recognize_GeneralCall
 
 
-#define Master_Not_Addressed 	//if Master will not be addressed or master no one will send data to it
-//#define Master_Addressed     	// Master mode it is the Id when the master is in receive mode
+//#define Master_Not_Addressed 	//if Master will not be addressed or master no one will send data to it
+#define Master_Addressed     	// Master mode it is the Id when the master is in receive mode
 
+//#define Slave_Not_Addressed
+#define Slave_Addressed
 
 /*Master  Transmitter Mode Status Code*/
 #define START_ACK						0x08 /* Start has been sent */

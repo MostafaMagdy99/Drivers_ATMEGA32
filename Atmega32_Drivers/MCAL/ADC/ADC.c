@@ -126,7 +126,7 @@ STD_Return ADC_SetInterrupt_Enable(ADC_Interrupt_State_t State)
  * 
  * 								return 0 mean Error is found , return 1 mean Error is not found
  **/
-STD_Return ADC_Start_conversion(u8 channel)
+STD_Return ADC_Start_conversion_by_Polling(u8 channel)
 {
 	if (channel>MaxPinNum)
 	{
@@ -182,7 +182,7 @@ STD_Return ADC_Get_Value(u16 *AdcResult)
  * 
  * 								return 0 mean Error is found , return 1 mean Error is not found
  **/
-STD_Return ADC_Read_Value(u8 channel,u16 *AdcValue)
+STD_Return ADC_Read_Value_by_Polling(u8 channel,u16 *AdcValue)
 {
 	u16 AdcValue_Temp=0;
 	if (channel>MaxPinNum)
@@ -228,7 +228,7 @@ STD_Return ADC_Read_Value(u8 channel,u16 *AdcValue)
  * 
  * 								return 0 mean Error is found , return 1 mean Error is not found
  **/
-STD_Return ADC_ReadVolt (u8 channel,f32 *AdcVolt)
+STD_Return ADC_ReadVolt_by_Polling (u8 channel,f32 *AdcVolt)
 	{
 		u16 AdcValue_Temp=0;
 		if(channel>MaxPinNum)
@@ -237,7 +237,7 @@ STD_Return ADC_ReadVolt (u8 channel,f32 *AdcVolt)
 			}
 		else
 			{
-				ADC_Read_Value(channel,&AdcValue_Temp);
+				ADC_Read_Value_by_Polling(channel,&AdcValue_Temp);
 				*AdcVolt= (((f32)AdcValue_Temp)*((f32)VREF))/((f32)(ADC_MAX));
 			}
 		return E_NOK;
@@ -261,3 +261,66 @@ ISR(ADC_Vect)
 	(*User_Function)();
 }
 /*****************************************************************************************************/
+
+STD_Return ADC_Start_conversion_by_Interrupt(u8 channel)
+{
+	if (channel>MaxPinNum)
+	{
+		return E_OK;
+	}
+	else
+	{
+			//Mask for non used bits of the 8 bits of the Regsiter
+			ADMUX &= Unselected_Channel_MASK;
+
+			//Mask for the usage 3 bits of the 8 bits
+			ADMUX |= channel;
+
+			//Set the AdcStartConversion
+			SET_BIT(ADCSRA,ADSC);
+			return E_NOK;
+
+	}
+}
+extern STD_Return ADC_Read_Value_by_Interrupt(u8 channel,u16 *AdcValue)
+{
+	u16 AdcValue_Temp=0;
+		if (channel>MaxPinNum)
+			{
+				return E_OK;
+			}
+			else
+			{
+					//Mask for non used bits of the 8 bits of the Regsiter
+					ADMUX &= Unselected_Channel_MASK;
+
+					//Mask for the usage 3 bits of the 8 bits
+					ADMUX |= channel;
+
+					//Set the AdcStartConversion
+					SET_BIT(ADCSRA,ADSC);
+
+				#if defined Resolution_8_Bit
+					*AdcValue=ADCH;
+				#elif defined Resolution_10_Bit
+					AdcValue_Temp= ADCL + (ADCH<<8); //Get the values of the two ADC registers
+					*AdcValue = (AdcValue_Temp & Resolution_10Bit_MASK); //Mask higher bits in ADCH and read only the 10 bits for the ADC
+				#endif
+			}
+		return E_NOK;
+	}
+//Poll and read the voltage on the ADC pin
+extern STD_Return ADC_ReadVolt_by_Interrupt(u8 channel,f32 *AdcVolt)
+{
+	u16 AdcValue_Temp=0;
+	if(channel>MaxPinNum)
+		{
+			return E_OK;
+		}
+	else
+		{
+			ADC_Read_Value_by_Interrupt(channel,&AdcValue_Temp);
+			*AdcVolt= (((f32)AdcValue_Temp)*((f32)VREF))/((f32)(ADC_MAX));
+		}
+	return E_NOK;
+}

@@ -84,7 +84,7 @@ extern STD_Return ADC_SetInterrupt_Enable(ADC_Interrupt_State_t State);
  * 
  * 								return 0 mean Error is found , return 1 mean Error is not found
  **/
-extern STD_Return ADC_Start_conversion(u8 channel);
+extern STD_Return ADC_Start_conversion_by_Polling(u8 channel);
 /*****************************************************************************************************/
 /**
  * @brief
@@ -109,7 +109,7 @@ extern STD_Return ADC_Get_Value(u16 *AdcResult);
  * 
  * 								return 0 mean Error is found , return 1 mean Error is not found
  **/
-extern STD_Return ADC_Read_Value(u8 channel,u16 *AdcValue);
+extern STD_Return ADC_Read_Value_by_Polling(u8 channel,u16 *AdcValue);
 /*****************************************************************************************************/
 /**
  * @brief 
@@ -122,7 +122,7 @@ extern STD_Return ADC_Read_Value(u8 channel,u16 *AdcValue);
  * 
  * 								return 0 mean Error is found , return 1 mean Error is not found
  **/
-extern STD_Return ADC_ReadVolt (u8 channel,f32 *AdcVolt);
+extern STD_Return ADC_ReadVolt_by_Polling (u8 channel,f32 *AdcVolt);
 /*****************************************************************************************************/
 /**
  * @brief 
@@ -134,5 +134,9 @@ extern STD_Return ADC_ReadVolt (u8 channel,f32 *AdcVolt);
  **/
 extern void ADC_CallBack(void (*func_ptr)(void));
 /*****************************************************************************************************/
+extern STD_Return ADC_ReadVolt_by_Interrupt(u8 channel,f32 *AdcVolt);
+extern STD_Return ADC_Read_Value_by_Interrupt(u8 channel,u16 *AdcValue);
+STD_Return ADC_Start_conversion_by_Interrupt(u8 channel);
+
 /*This is preprocessor Header file guard End  */
 #endif /* MCAL_ADC_ADC_H_ */
